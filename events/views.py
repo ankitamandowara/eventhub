@@ -1,4 +1,6 @@
 from rest_framework import viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
 
 from .models import Event, Reservation
 from .serializers import EventSerializer, ReservationSerializer
@@ -29,3 +31,18 @@ class ReservationViewSet(viewsets.ModelViewSet):
         if event_id:
             queryset = queryset.filter(event_id=event_id)
         return queryset
+
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        reservation = self.get_object()
+
+        if reservation.status == 'cancelled':
+            return Response({'error': 'Already cancelled.'}, status=400)
+
+        reservation.event.available_seats += reservation.seats_reserved
+        reservation.event.save()
+
+        reservation.status = 'cancelled'
+        reservation.save()
+
+        return Response(self.get_serializer(reservation).data)
